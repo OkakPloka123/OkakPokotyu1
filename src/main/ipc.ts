@@ -1,13 +1,17 @@
-import { dialog, ipcMain, type BrowserWindow, type OpenDialogOptions } from 'electron'
+import { clipboard, dialog, ipcMain, type BrowserWindow, type OpenDialogOptions } from 'electron'
 import { providers } from './agent/providers'
 import type { ChatService } from './chats'
+import type { McpService } from './mcp/service'
 import type { Store } from './store'
 
-export function registerIpc(
-  chats: ChatService,
-  store: Store,
-  getWindow: () => BrowserWindow | null
-): void {
+interface IpcDeps {
+  chats: ChatService
+  mcp: McpService
+  store: Store
+  getWindow(): BrowserWindow | null
+}
+
+export function registerIpc({ chats, mcp, store, getWindow }: IpcDeps): void {
   ipcMain.handle('settings:get', () => store.settings)
 
   ipcMain.handle('settings:pickWorkspace', async () => {
@@ -47,6 +51,17 @@ export function registerIpc(
   ipcMain.handle('chats:respond', (_event, chatId: unknown, itemId: unknown, approved: unknown) =>
     chats.respond(asString(chatId), asString(itemId), approved === true)
   )
+
+  ipcMain.handle('mcp:get', () => mcp.snapshot())
+  ipcMain.handle('mcp:setEnabled', (_event, enabled: unknown) => mcp.setEnabled(enabled === true))
+  ipcMain.handle('mcp:setPort', (_event, port: unknown) => mcp.setPort(Number(port)))
+  ipcMain.handle('mcp:regenerateToken', () => mcp.regenerateToken())
+  ipcMain.handle('mcp:clearLog', () => mcp.clearLog())
+  ipcMain.handle('mcp:respond', (_event, itemId: unknown, approved: unknown) =>
+    mcp.respond(asString(itemId), approved === true)
+  )
+  ipcMain.handle('mcp:stopJob', (_event, jobId: unknown) => mcp.stopJob(asString(jobId)))
+  ipcMain.handle('clipboard:write', (_event, text: unknown) => clipboard.writeText(asString(text)))
 }
 
 function asString(value: unknown): string {

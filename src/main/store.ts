@@ -1,21 +1,31 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Chat, Settings } from '../shared/types'
+import type { Chat, Settings, ToolItem } from '../shared/types'
 
-const DEFAULT_SETTINGS: Settings = { workspace: null, providerId: 'demo' }
+export const DEFAULT_MCP_PORT = 7337
 
-/** Settings and chats stored as JSON files in the app's data folder. */
+const DEFAULT_SETTINGS: Settings = {
+  workspace: null,
+  providerId: 'demo',
+  mcp: { enabled: false, port: DEFAULT_MCP_PORT, token: '' }
+}
+
+/** Settings, chats and the MCP journal stored as JSON files in the app's data folder. */
 export class Store {
   settings: Settings
   chats: Chat[]
+  mcpLog: ToolItem[]
 
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true })
+    const saved = readJson<Partial<Settings>>(this.file('settings'), {})
     this.settings = {
       ...DEFAULT_SETTINGS,
-      ...readJson<Partial<Settings>>(this.file('settings'), {})
+      ...saved,
+      mcp: { ...DEFAULT_SETTINGS.mcp, ...saved.mcp }
     }
     this.chats = readJson<Chat[]>(this.file('chats'), [])
+    this.mcpLog = readJson<ToolItem[]>(this.file('mcp-log'), [])
   }
 
   saveSettings(): void {
@@ -24,6 +34,10 @@ export class Store {
 
   saveChats(): void {
     writeJson(this.file('chats'), this.chats)
+  }
+
+  saveMcpLog(): void {
+    writeJson(this.file('mcp-log'), this.mcpLog)
   }
 
   private file(name: string): string {

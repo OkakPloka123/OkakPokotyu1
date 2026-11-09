@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { AppApi, Chat, RunState } from '../shared/types'
+import type { AppApi, Chat, McpSnapshot, RunState } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const handler = (_event: IpcRendererEvent, payload: T): void => listener(payload)
@@ -21,7 +21,18 @@ const api: AppApi = {
   respond: (chatId, itemId, approved) =>
     ipcRenderer.invoke('chats:respond', chatId, itemId, approved),
   onChatUpdated: (listener) => subscribe<Chat>('chat:updated', listener),
-  onRunState: (listener) => subscribe<RunState>('run:state', listener)
+  onRunState: (listener) => subscribe<RunState>('run:state', listener),
+
+  getMcp: () => ipcRenderer.invoke('mcp:get'),
+  setMcpEnabled: (enabled) => ipcRenderer.invoke('mcp:setEnabled', enabled),
+  setMcpPort: (port) => ipcRenderer.invoke('mcp:setPort', port),
+  regenerateMcpToken: () => ipcRenderer.invoke('mcp:regenerateToken'),
+  clearMcpLog: () => ipcRenderer.invoke('mcp:clearLog'),
+  respondMcp: (itemId, approved) => ipcRenderer.invoke('mcp:respond', itemId, approved),
+  stopMcpJob: (jobId) => ipcRenderer.invoke('mcp:stopJob', jobId),
+  copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
+  onMcpUpdated: (listener) => subscribe<McpSnapshot>('mcp:updated', listener),
+  onMcpFocus: (listener) => subscribe<void>('mcp:focus', () => listener())
 }
 
 contextBridge.exposeInMainWorld('api', api)

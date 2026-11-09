@@ -5,6 +5,7 @@ interface TopBarProps {
   workspace: string | null
   providers: ProviderInfo[]
   providerId: string
+  showProvider: boolean
   onPickWorkspace(): void
   onProviderChange(providerId: string): void
 }
@@ -13,6 +14,7 @@ export function TopBar({
   workspace,
   providers,
   providerId,
+  showProvider,
   onPickWorkspace,
   onProviderChange
 }: TopBarProps): React.JSX.Element {
@@ -29,16 +31,18 @@ export function TopBar({
         <FolderIcon />
         <span className="workspace-path">{workspace ?? 'Выбрать рабочую папку'}</span>
       </button>
-      <label className="provider" title={provider?.description}>
-        <span className="muted">Агент</span>
-        <select value={providerId} onChange={(event) => onProviderChange(event.target.value)}>
-          {providers.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {showProvider && (
+        <label className="provider" title={provider?.description}>
+          <span className="muted">Агент</span>
+          <select value={providerId} onChange={(event) => onProviderChange(event.target.value)}>
+            {providers.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </header>
   )
 }

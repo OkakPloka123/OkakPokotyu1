@@ -27,6 +27,8 @@ export interface ToolItem extends BaseItem {
   call: ToolCall
   status: ToolStatus
   output?: string
+  /** Set for a background command started over MCP, so the user can stop it. */
+  jobId?: string
 }
 
 export interface NoticeItem extends BaseItem {
@@ -52,9 +54,29 @@ export interface ChatSummary {
   running: boolean
 }
 
+export interface McpSettings {
+  enabled: boolean
+  port: number
+  token: string
+}
+
 export interface Settings {
   workspace: string | null
   providerId: string
+  mcp: McpSettings
+}
+
+export type McpState = 'stopped' | 'starting' | 'running' | 'error'
+
+export interface McpSnapshot {
+  enabled: boolean
+  state: McpState
+  port: number
+  url: string
+  error: string | null
+  token: string
+  /** Actions requested by external agents, newest first. */
+  items: ToolItem[]
 }
 
 export interface ProviderInfo {
@@ -84,4 +106,16 @@ export interface AppApi {
   respond(chatId: string, itemId: string, approved: boolean): Promise<void>
   onChatUpdated(listener: (chat: Chat) => void): () => void
   onRunState(listener: (state: RunState) => void): () => void
+
+  getMcp(): Promise<McpSnapshot>
+  setMcpEnabled(enabled: boolean): Promise<McpSnapshot>
+  setMcpPort(port: number): Promise<McpSnapshot>
+  regenerateMcpToken(): Promise<McpSnapshot>
+  clearMcpLog(): Promise<McpSnapshot>
+  respondMcp(itemId: string, approved: boolean): Promise<void>
+  stopMcpJob(jobId: string): Promise<void>
+  copyText(text: string): Promise<void>
+  onMcpUpdated(listener: (snapshot: McpSnapshot) => void): () => void
+  /** Fired when the user clicks an approval notification. */
+  onMcpFocus(listener: () => void): () => void
 }

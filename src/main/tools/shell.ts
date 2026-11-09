@@ -10,6 +10,16 @@ export interface CommandResult {
   truncated: boolean
 }
 
+/** A started shell command whose output is collected while it runs. */
+export interface CommandProcess {
+  readonly output: string
+  readonly truncated: boolean
+  /** Exit code once the command and its output streams close; `null` when killed by a signal. */
+  readonly done: Promise<number | null>
+  /** Kills the command together with its child processes. */
+  kill(): void
+}
+
 export function shellCommand(
   command: string,
   platform: NodeJS.Platform = process.platform
@@ -31,55 +41,68 @@ export function shellCommand(
   return { file: process.env.SHELL || '/bin/sh', args: [...login, '-c', command] }
 }
 
+export function startCommand(command: string, cwd: string): CommandProcess {
+  const { file, args } = shellCommand(command)
+  const child = spawn(file, args, {
+    cwd,
+    // Its own process group, so the whole tree can be killed at once.
+    detached: process.platform !== 'win32',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+
+  let output = ''
+  let truncated = false
+  const collect = (chunk: string): void => {
+    if (output.length < MAX_CAPTURE_CHARS) output += chunk
+    else truncated = true
+  }
+  child.stdout?.setEncoding('utf8').on('data', collect)
+  child.stderr?.setEncoding('utf8').on('data', collect)
+
+  const done = new Promise<number | null>((resolve, reject) => {
+    child.on('error', reject)
+    child.on('close', resolve)
+  })
+  // Callers that never await `done` must not trigger an unhandled rejection.
+  done.catch(() => {})
+
+  return {
+    get output() {
+      return output
+    },
+    get truncated() {
+      return truncated
+    },
+    done,
+    kill: () => killTree(child)
+  }
+}
+
 /** Runs a shell command in `cwd`, killing it (with its children) on timeout or abort. */
-export function runCommand(
+export async function runCommand(
   command: string,
   cwd: string,
   signal: AbortSignal,
   timeoutMs = COMMAND_TIMEOUT_MS
 ): Promise<CommandResult> {
-  return new Promise((resolve, reject) => {
+  signal.throwIfAborted()
+  const proc = startCommand(command, cwd)
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    proc.kill()
+  }, timeoutMs)
+  const onAbort = (): void => proc.kill()
+  signal.addEventListener('abort', onAbort, { once: true })
+  try {
+    const exitCode = await proc.done
     signal.throwIfAborted()
-    const { file, args } = shellCommand(command)
-    const child = spawn(file, args, {
-      cwd,
-      // Its own process group, so the whole tree can be killed at once.
-      detached: process.platform !== 'win32',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
-
-    let output = ''
-    let truncated = false
-    let timedOut = false
-    const collect = (chunk: string): void => {
-      if (output.length < MAX_CAPTURE_CHARS) output += chunk
-      else truncated = true
-    }
-    child.stdout?.setEncoding('utf8').on('data', collect)
-    child.stderr?.setEncoding('utf8').on('data', collect)
-
-    const timer = setTimeout(() => {
-      timedOut = true
-      killTree(child)
-    }, timeoutMs)
-    const onAbort = (): void => killTree(child)
-    signal.addEventListener('abort', onAbort, { once: true })
-    const cleanup = (): void => {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', onAbort)
-    }
-
-    child.on('error', (err) => {
-      cleanup()
-      reject(err)
-    })
-    child.on('close', (exitCode) => {
-      cleanup()
-      if (signal.aborted) reject(signal.reason)
-      else resolve({ exitCode, output, timedOut, truncated })
-    })
-  })
+    return { exitCode, output: proc.output, timedOut, truncated: proc.truncated }
+  } finally {
+    clearTimeout(timer)
+    signal.removeEventListener('abort', onAbort)
+  }
 }
 
 function killTree(child: ChildProcess): void {

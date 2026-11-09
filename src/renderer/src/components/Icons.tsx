@@ -44,6 +44,14 @@ export function SendIcon(): React.JSX.Element {
   )
 }
 
+export function PlugIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4" />
+    </svg>
+  )
+}
+
 export function StopIcon(): React.JSX.Element {
   return (
     <svg {...base} fill="currentColor" stroke="none">
