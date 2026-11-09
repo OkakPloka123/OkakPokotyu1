@@ -117,6 +117,11 @@ export class ChatService {
     }
   }
 
+  /** For app quit: stops every running agent together with its command. */
+  stopAll(): void {
+    for (const chatId of [...this.runs.keys()]) this.stop(chatId)
+  }
+
   respond(chatId: string, itemId: string, approved: boolean): void {
     const pending = this.approvals.get(itemId)
     if (!pending || pending.chatId !== chatId) return

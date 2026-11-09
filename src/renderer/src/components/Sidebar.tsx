@@ -1,21 +1,29 @@
-import type { ChatSummary } from '../../../shared/types'
+import type { ChatSummary, McpState } from '../../../shared/types'
 import { formatTime } from '../lib/format'
-import { PlusIcon, TrashIcon } from './Icons'
+import { PlugIcon, PlusIcon, TrashIcon } from './Icons'
 
 interface SidebarProps {
   chats: ChatSummary[]
   activeId: string | null
+  mcpState: McpState | null
+  mcpPending: number
+  mcpActive: boolean
   onSelect(chatId: string): void
   onCreate(): void
   onDelete(chatId: string): void
+  onOpenMcp(): void
 }
 
 export function Sidebar({
   chats,
   activeId,
+  mcpState,
+  mcpPending,
+  mcpActive,
   onSelect,
   onCreate,
-  onDelete
+  onDelete,
+  onOpenMcp
 }: SidebarProps): React.JSX.Element {
   return (
     <aside className="sidebar">
@@ -50,6 +58,17 @@ export function Sidebar({
           </div>
         ))}
       </nav>
+      <button className={mcpActive ? 'mcp-link active' : 'mcp-link'} onClick={onOpenMcp}>
+        <PlugIcon />
+        <span className="mcp-link-text">MCP-сервер</span>
+        {mcpPending > 0 ? (
+          <span className="count" title="Запросы ждут вашего ответа">
+            {mcpPending}
+          </span>
+        ) : (
+          <span className={`status-dot status-${mcpState ?? 'stopped'}`} />
+        )}
+      </button>
     </aside>
   )
 }

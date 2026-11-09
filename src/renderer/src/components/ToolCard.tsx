@@ -1,4 +1,5 @@
 import type { ToolItem, ToolName, ToolStatus } from '../../../shared/types'
+import { formatTime } from '../lib/format'
 
 const TITLES: Record<ToolName, string> = {
   list_dir: 'Просмотр папки',
@@ -21,9 +22,12 @@ const PREVIEW_LINES = 12
 interface ToolCardProps {
   item: ToolItem
   onRespond(approved: boolean): void
+  /** Offered while a background command is running. */
+  onStop?(): void
+  showTime?: boolean
 }
 
-export function ToolCard({ item, onRespond }: ToolCardProps): React.JSX.Element {
+export function ToolCard({ item, onRespond, onStop, showTime }: ToolCardProps): React.JSX.Element {
   const { call, status, output } = item
   const target =
     call.name === 'run_command' ? `$ ${call.args.command ?? ''}` : (call.args.path ?? '.')
@@ -32,6 +36,7 @@ export function ToolCard({ item, onRespond }: ToolCardProps): React.JSX.Element 
     <div className={`tool tool-${status}`}>
       <div className="tool-head">
         <span className="tool-title">{TITLES[call.name]}</span>
+        {showTime && <span className="tool-time">{formatTime(item.at)}</span>}
         <span className={`badge badge-${status}`}>{STATUS[status]}</span>
       </div>
       <pre className="tool-target">{target}</pre>
@@ -45,6 +50,13 @@ export function ToolCard({ item, onRespond }: ToolCardProps): React.JSX.Element 
           </button>
           <button className="btn" onClick={() => onRespond(false)}>
             Отклонить
+          </button>
+        </div>
+      )}
+      {status === 'running' && onStop && (
+        <div className="tool-actions">
+          <button className="btn" onClick={onStop}>
+            Остановить
           </button>
         </div>
       )}
